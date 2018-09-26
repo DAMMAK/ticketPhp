@@ -728,6 +728,9 @@ function receivedPostback(event) {
             getUser(senderID);
             break;
 
+        case "Akkoord":
+            Akkoord_payload(senderID);
+            break;
         default:
             //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
@@ -894,7 +897,7 @@ function getUser(userId) {
                     user.first_name, user.last_name, user.gender);
 
 
-                let display_message = 'Welkom ' + user.first_name + ', bij hallokaartje! Ik ben Jos, jouw kaartjes assistent. Voordat we je kunnen helpen zijn we verplicht je te vragen akkoord te gaan met onze voorwaarden.';
+                let display_message = 'Welkom bij hallokaartje! Ik ben Jos, jouw kaartjes assistent. Voordat we je kunnen helpen zijn we verplicht je te vragen akkoord te gaan met onze voorwaarden.';
                 let button = [{
                         "type": "postback",
                         "title": "Akkoord ",
@@ -913,6 +916,54 @@ function getUser(userId) {
                 ];
 
                 sendButtonMessage(userId, display_message, button);
+
+            } else {
+                console.log("Cannot get data for fb user with id",
+                    userId);
+            }
+        } else {
+            console.error(response.error);
+        }
+
+    });
+    return user;
+}
+
+function Akkoord_payload(userId) {
+    //first read user firstname
+    var user = null;
+    request({
+        uri: 'https://graph.facebook.com/v2.7/' + userId,
+        qs: {
+            access_token: config.FB_PAGE_TOKEN
+        }
+
+    }, function(error, response, body) {
+        if (!error && response.statusCode == 200) {
+
+            user = JSON.parse(body);
+
+            if (user.first_name) {
+                console.log("FB user: %s %s, %s",
+                    user.first_name, user.last_name, user.gender);
+
+
+                let display_message = 'Hallo  ' + user.first_name + '!, Ik ben Jos, jouw kaartjes assistent. Hoe kan ik je helpen?';
+                let button = [{
+                        "type": "postback",
+                        "title": "Nieuw kaartje ",
+                        "payload": "Nieuw kaartje "
+                    },
+                    {
+                        "type": "postback",
+                        "title": "Adres toevoegen",
+                        "payload": "Adres toevoegen"
+                    }
+                ];
+
+                sendButtonMessage(userId, display_message, button);
+
+                //Database Operation
 
             } else {
                 console.log("Cannot get data for fb user with id",
