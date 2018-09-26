@@ -900,13 +900,13 @@ function getUser(userId) {
                 let display_message = 'Welkom bij hallokaartje! Ik ben Jos, jouw kaartjes assistent. Voordat we je kunnen helpen zijn we verplicht je te vragen akkoord te gaan met onze voorwaarden.';
                 let button = [{
                         "type": "postback",
-                        "title": "Akkoord ",
-                        "payload": "Akkoord "
+                        "title": "Akkoord",
+                        "payload": "Akkoord"
                     },
                     {
                         "type": "postback",
-                        "title": "Niet akkoord ",
-                        "payload": "Niet akkoord "
+                        "title": "Niet akkoord",
+                        "payload": "Niet akkoord"
                     },
                     {
                         "type": "postback",
