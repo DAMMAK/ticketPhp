@@ -914,9 +914,10 @@ function getUser(userId) {
                         "payload": "Niet akkoord"
                     },
                     {
-                        "type": "postback",
+                        "type": "web_url",
+                        "url": " http://hallokaartje.nl/voorwaarden",
                         "title": "Lees voorwaarden",
-                        "payload": "Lees voorwaarden"
+                        "webview_height_ratio": "full"
                     }
                 ];
 
