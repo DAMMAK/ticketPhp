@@ -731,6 +731,11 @@ function receivedPostback(event) {
         case "Akkoord":
             Akkoord_payload(senderID);
             break;
+
+        case "Niet akkoord":
+            Nietakkoord_payload(senderID);
+            break;
+
         default:
             //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
@@ -977,7 +982,10 @@ function Akkoord_payload(userId) {
     return user;
 }
 
-
+function Nietakkoord_payload(SENDER) {
+    let message = "Jammer! Ik was je graag van dienst geweest.";
+    sendTextMessage(SENDER, message);
+}
 
 // Spin up the server
 app.listen(app.get('port'), function() {
