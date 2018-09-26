@@ -723,10 +723,15 @@ function receivedPostback(event) {
     var payload = event.postback.payload;
 
     switch (payload) {
+
+        case "GET_STARTED":
+            getUser(senderID);
+            break;
+
         default:
-        //unindentified payload
+            //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
-        break;
+            break;
 
     }
 
