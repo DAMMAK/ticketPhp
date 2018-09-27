@@ -738,7 +738,10 @@ function receivedPostback(event) {
             sendTypingOn(senderID);
             Nietakkoord_payload(senderID);
             break;
-
+        case "Nieuw kaartje":
+            sendTypingOn(senderID);
+            Nieuwkaartje_payload(senderID);
+            break;
         default:
             //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
@@ -960,8 +963,8 @@ function Akkoord_payload(userId) {
                 let display_message = 'Hallo  ' + user.first_name + '!, Ik ben Jos, jouw kaartjes assistent. Hoe kan ik je helpen?';
                 let button = [{
                         "type": "postback",
-                        "title": "Nieuw kaartje ",
-                        "payload": "Nieuw kaartje "
+                        "title": "Nieuw kaartje",
+                        "payload": "Nieuw kaartje"
                     },
                     {
                         "type": "postback",
@@ -989,6 +992,24 @@ function Akkoord_payload(userId) {
 function Nietakkoord_payload(SENDER) {
     let message = "Jammer! Ik was je graag van dienst geweest.";
     sendTextMessage(SENDER, message);
+}
+
+
+function Nieuwkaartje_payload(SENDER) {
+    let display_message = 'Cool! Een kaartje versturen is zo gebeurd. Waar moet ie naartoe?';
+    let button = [{
+            "type": "postback",
+            "title": "Bestaand adres",
+            "payload": "Bestaand adres"
+        },
+        {
+            "type": "postback",
+            "title": "Nieuw adres",
+            "payload": "Nieuw adres"
+        }
+    ];
+
+    sendButtonMessage(SENDER, display_message, button);
 }
 
 // Spin up the server
