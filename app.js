@@ -725,14 +725,17 @@ function receivedPostback(event) {
     switch (payload) {
 
         case "GET_STARTED":
+            sendTypingOn(senderID);
             getUser(senderID);
             break;
 
         case "Akkoord":
+            sendTypingOn(senderID);
             Akkoord_payload(senderID);
             break;
 
         case "Niet akkoord":
+            sendTypingOn(senderID);
             Nietakkoord_payload(senderID);
             break;
 
