@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const request = require('request');
 const app = express();
 const uuid = require('uuid');
+const mysql = require('mysql');
 
 
 // Messenger API parameters
@@ -27,6 +28,18 @@ if (!config.SERVER_URL) { //used for ink to static files
     throw new Error('missing SERVER_URL');
 }
 
+//Facebook Account Details
+var firstname = null;
+var address = null;
+var user_id = null;
+var recipientName = null;
+
+var con = mysql.createConnection({
+    host: config.MYSQL_HOST,
+    user: config.MYSQL_USERNAME,
+    password: config.MYSQL_PASSWORD,
+    database: config.MYSQL_DB
+});
 
 
 app.set('port', (process.env.PORT || 5000))
@@ -187,6 +200,21 @@ function handleApiAiAction(sender, action, responseText, contexts, parameters) {
         case "input.welcome":
             getUser(sender);
             break;
+        case "new-address":
+            kummar(parameters, sender);
+            break;
+
+        case "new-ticket":
+            sendTypingOn(sender);
+            Nieuwkaartje_payload(sender);
+            break;
+        case "who-living":
+            klop_action(parameters, sender);
+            break;
+
+        case "waar-true":
+            klop_2_payload(sender);
+
         default:
             //unhandled action, just send back the text
             sendTextMessage(sender, responseText);
@@ -742,6 +770,14 @@ function receivedPostback(event) {
             sendTypingOn(senderID);
             Nieuwkaartje_payload(senderID);
             break;
+
+        case "Nope":
+            Nope_theEnd(senderID);
+            break;
+
+        case "Bestaand adres":
+            Bestaandadres_payload(senderID);
+            break;
         default:
             //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
@@ -907,7 +943,8 @@ function getUser(userId) {
                 console.log("FB user: %s %s, %s",
                     user.first_name, user.last_name, user.gender);
 
-
+                firstname = user.first_name;
+                user_id = user.id;
                 let display_message = 'Welkom bij hallokaartje! Ik ben Jos, jouw kaartjes assistent. Voordat we je kunnen helpen zijn we verplicht je te vragen akkoord te gaan met onze voorwaarden.';
                 let button = [{
                         "type": "postback",
@@ -956,26 +993,49 @@ function Akkoord_payload(userId) {
             user = JSON.parse(body);
 
             if (user.first_name) {
-                console.log("FB user: %s %s, %s",
-                    user.first_name, user.last_name, user.gender);
+                console.log("FB user FROM ADMIN:",
+                    user);
 
 
                 let display_message = 'Hallo  ' + user.first_name + '!, Ik ben Jos, jouw kaartjes assistent. Hoe kan ik je helpen?';
-                let button = [{
-                        "type": "postback",
+                // let button = [{
+                //         "type": "postback",
+                //         "title": "Nieuw kaartje",
+                //         "payload": "Nieuw kaartje"
+                //     },
+                //     {
+                //         "type": "postback",
+                //         "title": "Adres toevoegen",
+                //         "payload": "Adres toevoegen"
+                //     }
+                // ];
+                // sendButtonMessage(userId, display_message, button);
+
+                let replies = [{
+                        "content_type": "text",
                         "title": "Nieuw kaartje",
-                        "payload": "Nieuw kaartje"
+                        "payload": "Nieuw kaartje",
                     },
                     {
-                        "type": "postback",
+                        "content_type": "text",
                         "title": "Adres toevoegen",
-                        "payload": "Adres toevoegen"
+                        "payload": "Adres toevoegen",
                     }
                 ];
+                sendQuickReply(userId, display_message, replies);
 
-                sendButtonMessage(userId, display_message, button);
+
+
 
                 //Database Operation
+                // let sqlString = "INSERT INTO users(firstname, lastname, gender, user_id, CreatedAt) VALUES ?";
+                let sql = { firstname: user.first_name, lastname: user.last_name, gender: user.gender, user_id: 1, CreatedAt: new Date() };
+                // let sqlValue = [user.first_name, user.last_name, user.gender, 1, new Date()]
+                con.query('INSERT INTO users SET ?', sql, function(err, result) {
+                    if (err) throw err;
+                    console.log("Number of records inserted: " + result.affectedRows);
+                });
+
 
             } else {
                 console.log("Cannot get data for fb user with id",
@@ -990,8 +1050,22 @@ function Akkoord_payload(userId) {
 }
 
 function Nietakkoord_payload(SENDER) {
+    //Quick Replies
     let message = "Jammer! Ik was je graag van dienst geweest.";
-    sendTextMessage(SENDER, message);
+    let replies = [{
+            "content_type": "text",
+            "title": "Oké, toch akkoord",
+            "payload": "Oké, toch akkoord",
+        },
+        {
+            "content_type": "text",
+            "title": "Houdoe",
+            "payload": "Houdoe",
+        }
+    ];
+    sendQuickReply(SENDER, message, replies);
+
+    //INSERT USER DATA INTO DATABASE
 }
 
 
@@ -1009,8 +1083,151 @@ function Nieuwkaartje_payload(SENDER) {
         }
     ];
 
+
+
     sendButtonMessage(SENDER, display_message, button);
 }
+
+function Adrestoevoegen_payload(SENDER) {
+    //TODO
+}
+
+
+function Bestaandadres_payload(SENDER) {
+    console.log("Bestaandadres_payload");
+    sendTextMessage(SENDER, 'Oké, ik pak je adresboekje er even bij');
+    con.query(`SELECT * FROM postcard_recipient WHERE user_id = ${user_id} ORDER BY id DESC LIMIT 3`, function(err, result) {
+        if (err) throw err;
+        console.log("RECORD FETCH FROM DB: " + result);
+    });
+}
+
+function kummar(parameters, sender) {
+    if (parameters.hasOwnProperty("postalCode") && parameters["postalCode"] == '' && parameters.hasOwnProperty("houseNumber") && parameters["houseNumber"] == '') {
+        sendTextMessage(sender,
+            `Kom maar op met dat adres. Aan postcode en huisnummer heb ik genoeg. 
+    `);
+        setTimeout(() => {
+            sendTextMessage(sender,
+                `voer je postcode in?`);
+        }, 1000);
+
+    } else if (parameters.hasOwnProperty("houseNumber") && parameters["houseNumber"] == '') {
+
+        sendTextMessage(sender, `voer je huisnummer in?`);
+    } else if (parameters.hasOwnProperty("postalCode") && parameters["postalCode"] != '' && parameters.hasOwnProperty("houseNumber") && parameters["houseNumber"] != '') {
+        let postalCode = parameters["postalCode"];
+        let houseNumber = parameters["houseNumber"];
+
+        getAddress(postalCode, houseNumber, sender);
+
+    }
+}
+
+function getAddress(postalCode, houseNumber, sender) {
+    var request = require('request');
+
+    var headers = {
+        'X-Api-Key': 'J829ZSrL5l9bEUMlsM69M2Bm22uREgbW3BJRhl43'
+    };
+
+    var options = {
+        url: `https://api.postcodeapi.nu/v2/addresses/?postcode=${postalCode}&number=${houseNumber}`,
+        headers: headers
+    };
+
+    function callback(error, response, body) {
+        console.log("The DATA FROM API", body);
+        if (!error && response.statusCode == 200) {
+
+            let data = JSON.parse(body);
+            if (data._embedded.addresses.length > 0 && !data.error) {
+                let addressObject = data._embedded.addresses[0];
+                address = `${addressObject.street} ${addressObject.number} in ${addressObject.municipality.label}`;
+                let message = `${address} Klopt dit, ${firstname} ?`
+
+                let replies = [{
+                        "content_type": "text",
+                        "title": "Klopt",
+                        "payload": "Klopt",
+                    },
+                    {
+                        "content_type": "text",
+                        "title": "Klopt niet",
+                        "payload": "Klopt niet",
+                    }
+                ];
+                sendQuickReply(sender, message, replies);
+                // sendTextMessage(sender, `${address}`);
+            } else if (data.error || data._embedded.addresses.length === 0) {
+                sendTextMessage(sender, `We hebben helaas geen geldig adres gevonden bij deze postcode huisnummer combinatie. `);
+                //Go BAck to Kummar and action new-ticket
+            }
+        } else {
+            sendTextMessage(sender, `We hebben helaas geen geldig adres gevonden bij deze postcode huisnummer combinatie. `);
+            //Go BAck to Kummar and action new-ticket
+
+        }
+    }
+
+    request(options, callback);
+}
+
+function klop_action(parameters, sender) {
+    if (parameters.hasOwnProperty("living") && parameters["living"] == '') {
+        sendTextMessage(sender, `Wie woont er op dit adres?`);
+    }
+
+    if (parameters.hasOwnProperty("living") && parameters["living"] != '') {
+        recipientName = parameters["living"];
+        let display_message = `${recipientName} woont op ${address}`;
+        let button = [{
+                "content_type": "text",
+                "title": "Waar",
+                "payload": "Waar"
+            },
+            {
+                "content_type": "text",
+                "title": "Klopt niet",
+                "payload": "Klopt niet_2"
+            }
+        ];
+
+        sendQuickReply(sender, display_message, button);
+    }
+
+}
+
+function klop_2_payload(sender) {
+    //Database Operation
+    let sql = { user_id, address, recipient_name: recipientName, dateCreated: new Date() };
+    con.query('INSERT INTO postcard_recipient SET ?', sql, function(err, result) {
+        if (err) throw err;
+        console.log("Number of records inserted: " + result.affectedRows);
+    });
+
+    let display_message =
+        ` Die staat erin! Wil je ook meteen een kaartje sturen aan ${recipientName}?`;
+    let button = [{
+            "type": "postback",
+            "title": "Zeker",
+            "payload": "Zeker"
+        },
+        {
+            "type": "postback",
+            "title": "Nope",
+            "payload": "Nope"
+        }
+    ];
+
+    sendButtonMessage(sender, display_message, button);
+
+}
+
+function Nope_theEnd(sender) {
+    sendTextMessage(sender, ' No problemo!');
+}
+
 
 // Spin up the server
 app.listen(app.get('port'), function() {

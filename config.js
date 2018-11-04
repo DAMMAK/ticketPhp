@@ -4,4 +4,8 @@ module.exports = {
     API_AI_CLIENT_ACCESS_TOKEN: '5be9f626885044748bcfbc4fec227e4a',
     FB_APP_SECRET: '98393450e1b2025f27d5ba6def0727da',
     SERVER_URL: "https://hallokaartje.herokuapp.com/",
+    MYSQL_USERNAME: "root",
+    MYSQL_PASSWORD: "Adekoya123$",
+    MYSQL_DB: 'ticketDB',
+    MYSQL_HOST: 'localhost',
 };
