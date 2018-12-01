@@ -11,6 +11,7 @@ const uuid = require('uuid');
 const mysql = require('mysql');
 
 
+
 // Messenger API parameters
 if (!config.FB_PAGE_TOKEN) {
     throw new Error('missing FB_PAGE_TOKEN');
@@ -33,6 +34,11 @@ var firstname = null;
 var address = null;
 var user_id = null;
 var recipientName = null;
+var AddressData = new Array();
+var ImageDataObj = null;
+var post_text = null;
+var post_picture = null;
+var tokenData=null;
 
 var con = mysql.createConnection({
     host: config.MYSQL_HOST,
@@ -173,13 +179,27 @@ function receivedMessage(event) {
         sendToApiAi(senderID, messageText);
     } else if (messageAttachments) {
         handleMessageAttachments(messageAttachments, senderID);
+        // return messageAttachments;
+        ImageDataObj = messageAttachments;
+        console.log('OBJ OBJECT from media', ImageDataObj);
     }
 }
 
 
 function handleMessageAttachments(messageAttachments, senderID) {
     //for now just reply
-    sendTextMessage(senderID, "Attachment received. Thank you.");
+    // sendTextMessage(senderID, "Attachment received. Thank you.");
+    // console.log('MY PICTURE FILE IS:', messageAttachments);
+    // sendTextMessage(senderID, `${messageAttachments[0].payload.url}`);
+    if (post_text !== null) {
+        post_picture = messageAttachments[0].payload.url;
+        //sendTextMessage(senderID, "Thank you for uploading your attachment!");
+        pictureUpload(senderID);
+    } else {
+        sendTextMessage(senderID, "Sorry you uploaded your Picture Attachment at the wrong time, we can't accept your picture right now");
+
+    }
+
 }
 
 function handleQuickReply(senderID, quickReply, messageId) {
@@ -214,7 +234,10 @@ function handleApiAiAction(sender, action, responseText, contexts, parameters) {
 
         case "waar-true":
             klop_2_payload(sender);
-
+            break;
+        case "postcard-text-picture":
+            postcard_picture_text(parameters, sender);
+            break;
         default:
             //unhandled action, just send back the text
             sendTextMessage(sender, responseText);
@@ -778,6 +801,22 @@ function receivedPostback(event) {
         case "Bestaand adres":
             Bestaandadres_payload(senderID);
             break;
+        case AddressData[0].address:
+            console.log("ACTION ----->", "THE ACTION COMING FROM ADRRESS 1");
+            processAdressPayload(AddressData[0].address, AddressData[0].recipientName, senderID);
+            break;
+        case AddressData[1].address:
+            console.log("ACTION ----->", "THE ACTION COMING FROM ADRRESS 2");
+            processAdressPayload(AddressData[1].address, AddressData[1].recipientName, senderID);
+            break;
+        case AddressData[2].address:
+            console.log("ACTION ----->", "THE ACTION COMING FROM ADRRESS 3");
+            processAdressPayload(AddressData[2].address, AddressData[2].recipientName, senderID);
+
+            break;
+        case "Betalen":
+        BetalenPayload(senderID);
+        break;
         default:
             //unindentified payload
             sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
@@ -1029,7 +1068,7 @@ function Akkoord_payload(userId) {
 
                 //Database Operation
                 // let sqlString = "INSERT INTO users(firstname, lastname, gender, user_id, CreatedAt) VALUES ?";
-                let sql = { firstname: user.first_name, lastname: user.last_name, gender: user.gender, user_id: 1, CreatedAt: new Date() };
+                let sql = { firstname: user.first_name, lastname: user.last_name, gender: user.gender, user_id: user.id, CreatedAt: new Date() };
                 // let sqlValue = [user.first_name, user.last_name, user.gender, 1, new Date()]
                 con.query('INSERT INTO users SET ?', sql, function(err, result) {
                     if (err) throw err;
@@ -1095,11 +1134,138 @@ function Adrestoevoegen_payload(SENDER) {
 
 function Bestaandadres_payload(SENDER) {
     console.log("Bestaandadres_payload");
-    sendTextMessage(SENDER, 'Oké, ik pak je adresboekje er even bij');
-    con.query(`SELECT * FROM postcard_recipient WHERE user_id = ${user_id} ORDER BY id DESC LIMIT 3`, function(err, result) {
+    var cardAddressData = new Array();
+    var title = [];
+    let resultData = null;
+    let id = user_id;
+    // sendTextMessage(SENDER, 'Oké, ik pak je adresboekje er even bij');
+    sendTypingOn(SENDER);
+    con.query("SELECT * FROM postcard_recipient WHERE user_id = ? ORDER BY id DESC LIMIT 3", id, function(err, result) {
         if (err) throw err;
-        console.log("RECORD FETCH FROM DB: " + result);
+        // console.log("RECORD FETCH FROM DB: " + result);
+        // console.log("USER ID: ", user_id);
+        // console.log("THE JSON RESULT", JSON.stringify(result));
+        resultData = result;
+        // for (let i = 0; i < result.length; i++) {
+        //     console.log("LOG FILE LOOP", result[i].address);
+        //     title.push(result[i].address);
+
+        //     var message = {
+        //             title: result[i].address,
+        //             subtitle: "",
+        //             image_url: "https://www.oxfordlearning.com/wp-content/uploads/2011/09/a-guide-for-parents-on-getting-involved-in-kids-education-860x420.jpg",
+        //             buttons: [{
+        //                     "type": "postback",
+        //                     "title": "Verstuur naar dit adres",
+        //                     "payload": "Verstuur naar dit adres"
+        //                 },
+        //                 {
+        //                     "type": "postback",
+        //                     "title": "Naam aanpassen",
+        //                     "payload": "Naam aanpassen"
+        //                 },
+        //                 {
+        //                     "type": "postback",
+        //                     "title": "Adres aanpassen",
+        //                     "payload": "Adres aanpassen"
+        //                 }
+        //             ]
+
+        //         }
+        //         //cardAddressData.push(message);
+
+        // }
+
+        for (let i = 0; i < result.length; i++) {
+            AddressData[i] = { address: result[i].address, recipientName: result[i].recipient_name };
+            let message = {
+                title: result[i].address,
+                subtitle: "",
+                imageUrl: "",
+                buttons: [{
+                        "text": "Verstuur naar dit adres",
+                        "postback": result[i].address
+                    },
+                    {
+                        "text": "Naam aanpassen",
+                        "postback": "Naam aanpassen"
+                    },
+                    {
+                        "text": "Adres aanpassen",
+                        "postback": "Adres aanpassen"
+                    }
+                ]
+
+            };
+
+            cardAddressData.push(message);
+
+        }
+        handleCardMessages(cardAddressData, SENDER);
+        console.log("LOG DATA FILE:--- ", AddressData);
+
+        // SEND QUICK REPLIES
+
+        // let replies = [{
+        //         "content_type": "text",
+        //         "title": "Naam aanpassen",
+        //         "payload": "Naam aanpassen",
+        //     },
+        //     {
+        //         "content_type": "text",
+        //         "title": "Adres aanpassen",
+        //         "payload": "Adres aanpassen",
+        //     }
+        // ];
+        // sendQuickReply(SENDER, "THE TIME IS NOW", replies);
+
+
     });
+
+
+
+    // console.log("THE TITLE LIST ARE: ", title);
+
+
+    setTimeout(() => {
+        console.log("LOG DATA FILE:--- ", cardAddressData);
+        // handleCardMessages(cardAddressData, SENDER);
+
+        //SEND QUICK REPLIES
+
+        let replies = [{
+                "content_type": "text",
+                "title": "Naam aanpassen",
+                "payload": "Naam aanpassen",
+            },
+            {
+                "content_type": "text",
+                "title": "Adres aanpassen",
+                "payload": "Adres aanpassen",
+            }
+        ];
+        sendQuickReply(SENDER, "Oké, ik pak je adresboekje er even bij", replies);
+    }, 5000);
+}
+
+function processAdressPayload(address, reciepientName, sender) {
+    let msg = `Gaaf! We gaan een kaartje sturen naar ${reciepientName}`;
+
+    //sendTextMessage(sender, msg);
+    //INSERT DATA INTO DB (CARD TABLE);
+
+    let sql = { senderID: user_id, recipientAddress: address, recipientName: reciepientName, dateCreated: new Date() };
+    con.query('INSERT INTO cards SET ?', sql, function(err, result) {
+        if (err) throw err;
+        console.log("Number of records inserted: " + result.affectedRows);
+    });
+
+    let replies = [{
+        "content_type": "text",
+        "title": "Doorgaan met",
+        "payload": "Doorgaan met",
+    }];
+    sendQuickReply(sender, msg, replies);
 }
 
 function kummar(parameters, sender) {
@@ -1228,6 +1394,121 @@ function Nope_theEnd(sender) {
     sendTextMessage(sender, ' No problemo!');
 }
 
+function postcard_picture_text(parameters, sender) {
+    if (parameters.hasOwnProperty("card-text") && parameters["card-text"] == '') {
+        sendTextMessage(sender, `Wat moet er op het kaartje komen te staan?`);
+
+    }
+    // else if (parameters.hasOwnProperty("card-picture") && parameters["card-picture"] == '') {
+
+    //     sendTextMessage(sender, `Bijna klaar, tijd voor de foto!`);
+    // }
+    else if (parameters.hasOwnProperty("card-text") && parameters["card-text"] != '') {
+        post_text = parameters["card-text"];
+        let post_picture = parameters["card-picture"];
+
+        sendTextMessage(sender, `Bijna klaar, tijd voor de foto!`);
+
+
+        // sendTextMessage(sender, `The Picture Data:`);
+        // sendTextMessage(sender, `PIx: ${post_picture}`);
+        console.log("THE DATA AND PICTURE DATA", post_picture);
+        console.log("THE DATA AND TEXT DATA", post_text);
+
+    }
+
+    if (typeof ImageDataObj === String) {
+        sendTextMessage(sender, `Successfully recieved your Picture`);
+        console.log("THE DATA IMAGE: ", ImageDataObj);
+    }
+
+    setTimeout(() => {
+        if (post_picture === null) {
+            sendTextMessage(sender, `Hey ${firstname} ik verwachtte een foto van je`);
+        }
+    }, 1000 * 120);
+}
+
+function pictureUpload(sender) {
+    tokenGenerator();
+    let msg = `All right, dit kaartje gaan we zo naar ${recipientName} versturen!`;
+    let button = [{
+            "type": "postback",
+            "title": "Betalen",
+            "payload": "Betalen"
+        },
+        {
+            "type": "postback",
+            "title": "Aanpassen",
+            "payload": "Aanpassen"
+        }
+    ];
+
+    sendButtonMessage(sender, msg, button);
+
+}
+
+function BetalenPayload(sender)
+{
+
+    sendTextMessage(sender, 'Wait we will process your payment soon');
+    sendTextMessage(sender, tokenData.toString());
+    console.log('The Token: ', tokenData);
+
+    //CREATE PAYMENT REQUEST
+
+    var request = require('request');
+
+var headers = {
+    'Authorization': 'Bearer CJV2IBcpivITQWCAlX2gzHshnP8E',
+    'API-Key': 'gUgTBlRtV9OQN4N92YwhybDHxDnXAKpS',
+    'Content-Type': 'application/json'
+};
+
+var dataString = {
+	    "amountInCents": "100",
+	    "currency": "EUR",
+	    "description": "Payment",
+	    "externalId": "1"
+	};
+
+var options = {
+    url: 'https://api-sandbox.abnamro.com/v1/tikkie/platforms/18f60e32-1401-40d3-9716-f5443ccb143b/users/c1802531-7680-41c6-9a9e-09ba7b6de2c1/bankaccounts/dce2cd2b-0390-4ae3-83a9-52b8cff4f84b/paymentrequests',
+    method: 'POST',
+    headers: headers,
+    body: dataString
+};
+
+function callback(error, response, body) {
+    if (!error && response.statusCode == 200) {
+        console.log(body);
+    }
+}
+
+request(options, callback);
+
+}
+
+function tokenGenerator()
+{
+var jwt = require('jsonwebtoken');
+var fs = require('fs');
+var algo='RS256';
+var payload={
+    nbf:Math.floor(Date.now() / 1000),
+        exp:Math.floor(Date.now() / 1000) + 300,
+        sub:'gUgTBlRtV9OQN4N92YwhybDHxDnXAKpS',
+        iss:'me',
+        aud:'https://auth-sandbox.abnamro.com/oauth/token'
+};
+
+// sign with RSA SHA256
+var cert =fs.readFileSync('./private_rsa.pem');  // get private key
+ jwt.sign(payload, cert, { algorithm: algo},function(error,token){
+ console.log(token);
+tokenData=token;
+ });
+}
 
 // Spin up the server
 app.listen(app.get('port'), function() {
